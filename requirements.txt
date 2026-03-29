@@ -1,0 +1,12 @@
+# --- Core dependencies ---
+fastapi==0.115.2
+uvicorn==0.30.6
+
+# --- Communication ---
+requests==2.32.3
+websocket-client==1.8.0
+
+# --- Utils ---
+python-dotenv==1.0.1
+aiofiles==25.1.0
+python-multipart==0.0.20

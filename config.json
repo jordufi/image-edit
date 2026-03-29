@@ -1,0 +1,4 @@
+{
+  "comfyui_backend": "192.168.1.200:8188",
+  "output_dir": "/app/outputs"
+}

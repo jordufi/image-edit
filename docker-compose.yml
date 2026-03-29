@@ -1,0 +1,11 @@
+services:
+  image-editor:
+    image: sdonis/image-editor-1image:0.0.2
+    build: .
+    ports:
+      - "9093:9093"
+    environment:
+      - COMFYUI_ADDRESS=192.168.1.200:8188
+    volumes:
+      - ./outputs:/app/outputs
+    restart: unless-stopped
