@@ -1,6 +1,6 @@
 services:
   image-editor:
-    image: sdonis/image-editor-1image:0.0.2
+    image: sdonis/image-editor-1image:0.0.4
     build: .
     ports:
       - "9093:9093"
