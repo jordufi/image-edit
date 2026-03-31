@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Qwen Image Editor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(to right, #ff7e5f, #feb47b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: #a0a0c0;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .app-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        @media (max-width: 900px) {
+            .app-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .input-section, .output-section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            color: #ff7e5f;
+            display: flex;
+            align-items: center;
+        }
+
+        .section-title i {
+            margin-right: 0.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #c0c0e0;
+            font-weight: 500;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(0, 0, 0, 0.3);
+            color: #fff;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #ff7e5f;
+            box-shadow: 0 0 0 2px rgba(255, 126, 95, 0.3);
+        }
+
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .input-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .generate-btn {
+            display: block;
+            width: 100%;
+            background: linear-gradient(to right, #ff7e5f, #feb47b);
+            color: white;
+            border: none;
+            padding: 1rem 1.5rem;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(255, 126, 95, 0.3);
+            margin-top: 1rem;
+        }
+
+        .generate-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(255, 126, 95, 0.5);
+        }
+
+        .generate-btn:active {
+            transform: translateY(-1px);
+        }
+
+        .generate-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: 0 4px 15px rgba(255, 126, 95, 0.3);
+        }
+
+        .upload-btn {
+            background: linear-gradient(to right, #667eea, #764ba2);
+            margin-bottom: 1rem;
+        }
+
+        .image-container {
+            width: 100%;
+            height: 400px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            margin-bottom: 1.5rem;
+            border: 2px dashed rgba(255, 255, 255, 0.1);
+        }
+
+        .image-container img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            display: none;
+        }
+
+        .placeholder-text {
+            color: #a0a0c0;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .placeholder-text i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            display: block;
+            opacity: 0.5;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            color: #ff7e5f;
+        }
+
+        .loading i {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            display: block;
+            animation: spin 1.5s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            display: none;
+            background: rgba(255, 107, 107, 0.2);
+            border-left: 4px solid #ff6b6b;
+            padding: 1rem;
+            border-radius: 4px;
+            margin-top: 1rem;
+        }
+
+        .success {
+            display: none;
+            background: rgba(107, 255, 134, 0.2);
+            border-left: 4px solid #6bff86;
+            padding: 1rem;
+            border-radius: 4px;
+            margin-top: 1rem;
+        }
+
+        .upload-section {
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .history-section {
+            margin-top: 3rem;
+        }
+
+        .history-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .history-item {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+
+        .history-item:hover {
+            transform: scale(1.05);
+        }
+
+        .history-item img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 4rem;
+            color: #a0a0c0;
+            font-size: 0.9rem;
+        }
+
+        .back-link {
+            display: inline-block;
+            color: #ff7e5f;
+            text-decoration: none;
+            margin-bottom: 2rem;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+
+        .back-link:hover {
+            color: #feb47b;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .upload-area {
+            border: 2px dashed rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            padding: 1.5rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 1rem;
+        }
+
+        .upload-area:hover {
+            border-color: #ff7e5f;
+            background: rgba(255, 126, 95, 0.1);
+        }
+
+        .upload-area i {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            display: block;
+            opacity: 0.7;
+        }
+
+        .image-preview {
+            margin-top: 0.5rem;
+            text-align: center;
+        }
+
+        .image-preview img {
+            max-width: 150px;
+            max-height: 150px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        /* Mode selector */
+        .mode-selector {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .mode-option {
+            flex: 1;
+            text-align: center;
+            padding: 0.8rem;
+            border-radius: 10px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .mode-option:hover {
+            border-color: #ff7e5f;
+        }
+
+        .mode-option.active {
+            border-color: #ff7e5f;
+            background: rgba(255, 126, 95, 0.15);
+        }
+
+        .mode-option input[type="radio"] {
+            display: none;
+        }
+
+        .mode-label {
+            font-weight: 600;
+            font-size: 1rem;
+            color: #c0c0e0;
+        }
+
+        .mode-option.active .mode-label {
+            color: #ff7e5f;
+        }
+
+        /* Image slot grid */
+        .image-slots {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .image-slot {
+            background: rgba(0, 0, 0, 0.15);
+            border-radius: 10px;
+            padding: 1rem;
+        }
+
+        .image-slot.hidden {
+            display: none;
+        }
+
+        .slot-title {
+            font-size: 0.95rem;
+            color: #ff7e5f;
+            margin-bottom: 0.75rem;
+            font-weight: 600;
+        }
+
+        /* Preview grid in output section */
+        .preview-grid {
+            display: grid;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .preview-grid.cols-1 { grid-template-columns: 1fr; }
+        .preview-grid.cols-2 { grid-template-columns: 1fr 1fr; }
+        .preview-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+
+        .preview-slot {
+            text-align: center;
+        }
+
+        .preview-slot .image-container {
+            height: 200px;
+        }
+
+        .preview-slot.hidden {
+            display: none;
+        }
+
+        .preview-label {
+            font-size: 0.85rem;
+            color: #a0a0c0;
+            margin-bottom: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-link">← Back to Projects Hub</a>
+        
+        <header>
+            <h1>Qwen Image Editor</h1>
+            <p class="subtitle">Edit and transform images using Qwen AI — with 1, 2, or 3 reference images</p>
+        </header>
+        
+        <div class="app-container">
+            <div class="input-section">
+                <!-- Mode Selector -->
+                <h2 class="section-title">Image Mode</h2>
+                <div class="mode-selector">
+                    <div class="mode-option active" data-mode="1">
+                        <input type="radio" name="mode" value="1" checked>
+                        <div class="mode-label">1 Image</div>
+                    </div>
+                    <div class="mode-option" data-mode="2">
+                        <input type="radio" name="mode" value="2">
+                        <div class="mode-label">2 Images</div>
+                    </div>
+                    <div class="mode-option" data-mode="3">
+                        <input type="radio" name="mode" value="3">
+                        <div class="mode-label">3 Images</div>
+                    </div>
+                </div>
+
+                <div class="upload-section">
+                    <h2 class="section-title">Upload Images</h2>
+                    
+                    <div class="image-slots">
+                        <!-- Slot A (always visible) -->
+                        <div class="image-slot" id="slot-a">
+                            <div class="slot-title">Primary Image (A)</div>
+                            <div class="upload-area" data-slot="a">
+                                <i>📁</i>
+                                <p>Click or drag to upload</p>
+                                <input type="file" class="file-input" data-slot="a" accept="image/*">
+                            </div>
+                            <div class="image-preview"><img data-slot="a" src="" alt="Preview A"></div>
+                            <div class="form-group">
+                                <label>Select Image A</label>
+                                <select class="image-select" data-slot="a">
+                                    <option value="">-- Select an image --</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Slot B (visible for 2+ images) -->
+                        <div class="image-slot hidden" id="slot-b">
+                            <div class="slot-title">Secondary Image (B)</div>
+                            <div class="upload-area" data-slot="b">
+                                <i>📁</i>
+                                <p>Click or drag to upload</p>
+                                <input type="file" class="file-input" data-slot="b" accept="image/*">
+                            </div>
+                            <div class="image-preview"><img data-slot="b" src="" alt="Preview B"></div>
+                            <div class="form-group">
+                                <label>Select Image B</label>
+                                <select class="image-select" data-slot="b">
+                                    <option value="">-- Select an image --</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Slot C (visible for 3 images) -->
+                        <div class="image-slot hidden" id="slot-c">
+                            <div class="slot-title">Tertiary Image (C)</div>
+                            <div class="upload-area" data-slot="c">
+                                <i>📁</i>
+                                <p>Click or drag to upload</p>
+                                <input type="file" class="file-input" data-slot="c" accept="image/*">
+                            </div>
+                            <div class="image-preview"><img data-slot="c" src="" alt="Preview C"></div>
+                            <div class="form-group">
+                                <label>Select Image C</label>
+                                <select class="image-select" data-slot="c">
+                                    <option value="">-- Select an image --</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="upload-success" class="success"></div>
+                </div>
+                
+                <h2 class="section-title">Edit Parameters</h2>
+                
+                <div class="form-group">
+                    <label for="prompt">Edit Prompt</label>
+                    <textarea id="prompt" placeholder="Describe how you want to edit the image...">change this to a fire type pokemon but keeping his hat and cowboy jumpsuit and gloves</textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="negative-prompt">Negative Prompt</label>
+                    <textarea id="negative-prompt" placeholder="Describe what you don't want in the edited image..."></textarea>
+                </div>
+                
+                <div class="input-row">
+                    <div class="form-group">
+                        <label for="steps">Steps</label>
+                        <input type="number" id="steps" min="1" max="20" value="4">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="cfg">CFG Scale</label>
+                        <input type="number" id="cfg" min="1" max="10" step="0.1" value="1.0">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="seed">Seed (optional - set to 0 if not specified)</label>
+                    <input type="number" id="seed" value="0">
+                </div>
+                
+                <button id="generate-btn" class="generate-btn" disabled>Generate Edited Image</button>
+                
+                <div id="error-message" class="error"></div>
+            </div>
+            
+            <div class="output-section">
+                <h2 class="section-title">Selected Image Previews</h2>
+                
+                <div class="preview-grid cols-1" id="preview-grid">
+                    <div class="preview-slot" id="preview-a">
+                        <div class="preview-label">Image A</div>
+                        <div class="image-container">
+                            <div class="placeholder-text"><i>🖼️</i>Select image A</div>
+                            <img id="preview-img-a" src="" alt="Image A">
+                        </div>
+                    </div>
+                    <div class="preview-slot hidden" id="preview-b">
+                        <div class="preview-label">Image B</div>
+                        <div class="image-container">
+                            <div class="placeholder-text"><i>🖼️</i>Select image B</div>
+                            <img id="preview-img-b" src="" alt="Image B">
+                        </div>
+                    </div>
+                    <div class="preview-slot hidden" id="preview-c">
+                        <div class="preview-label">Image C</div>
+                        <div class="image-container">
+                            <div class="placeholder-text"><i>🖼️</i>Select image C</div>
+                            <img id="preview-img-c" src="" alt="Image C">
+                        </div>
+                    </div>
+                </div>
+                
+                <h2 class="section-title">Generated Image</h2>
+                
+                <div class="image-container">
+                    <div class="placeholder-text" id="output-placeholder">
+                        <i>🎨</i>
+                        Your edited image will appear here
+                    </div>
+                    <img id="generated-image" src="" alt="Generated Image">
+                    
+                    <div id="loading" class="loading">
+                        <i>⏳</i>
+                        Generating your image...
+                    </div>
+                </div>
+                
+                <a id="download-btn" class="generate-btn" style="display: none;" download="edited-image.png">Download Edited Image</a>
+            </div>
+        </div>
+        
+        <div class="history-section">
+            <h2 class="section-title">Generation History</h2>
+            <div id="history-grid" class="history-grid">
+                <div class="placeholder-text" style="grid-column: 1 / -1;">
+                    Your generation history will appear here
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>Created with ❤️ | JORDUFI HOME SERVER PROJECT</p>
+        </footer>
+    </div>
+
+    <script>
+        const API_BASE_URL = '/api';
+
+        // State
+        let currentMode = 1;
+        let uploadedImages = [];
+        let generationHistory = [];
+        const previewCache = new Map();
+
+        // DOM refs
+        const generateBtn = document.getElementById('generate-btn');
+        const promptInput = document.getElementById('prompt');
+        const negativePromptInput = document.getElementById('negative-prompt');
+        const stepsInput = document.getElementById('steps');
+        const cfgInput = document.getElementById('cfg');
+        const seedInput = document.getElementById('seed');
+        const generatedImage = document.getElementById('generated-image');
+        const downloadBtn = document.getElementById('download-btn');
+        const loadingElement = document.getElementById('loading');
+        const errorMessage = document.getElementById('error-message');
+        const uploadSuccess = document.getElementById('upload-success');
+        const outputPlaceholder = document.getElementById('output-placeholder');
+        const historyGrid = document.getElementById('history-grid');
+        const previewGrid = document.getElementById('preview-grid');
+
+        // --- Mode switching ---
+        document.querySelectorAll('.mode-option').forEach(opt => {
+            opt.addEventListener('click', () => {
+                document.querySelectorAll('.mode-option').forEach(o => o.classList.remove('active'));
+                opt.classList.add('active');
+                opt.querySelector('input[type="radio"]').checked = true;
+                currentMode = parseInt(opt.dataset.mode);
+                updateModeUI();
+                checkGenerateAvailability();
+            });
+        });
+
+        function updateModeUI() {
+            // Show/hide upload slots
+            document.getElementById('slot-b').classList.toggle('hidden', currentMode < 2);
+            document.getElementById('slot-c').classList.toggle('hidden', currentMode < 3);
+
+            // Show/hide preview slots and update grid columns
+            document.getElementById('preview-b').classList.toggle('hidden', currentMode < 2);
+            document.getElementById('preview-c').classList.toggle('hidden', currentMode < 3);
+            previewGrid.className = `preview-grid cols-${currentMode}`;
+        }
+
+        // --- Upload handling (generic for any slot) ---
+        function getSelectForSlot(slot) {
+            return document.querySelector(`.image-select[data-slot="${slot}"]`);
+        }
+        function getPreviewImgForSlot(slot) {
+            return document.querySelector(`.image-preview img[data-slot="${slot}"]`);
+        }
+
+        // Set up upload areas
+        document.querySelectorAll('.upload-area').forEach(area => {
+            const slot = area.dataset.slot;
+            const fileInput = area.querySelector('.file-input');
+
+            area.addEventListener('click', (e) => {
+                if (e.target !== fileInput) fileInput.click();
+            });
+
+            area.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                area.style.borderColor = '#ff7e5f';
+                area.style.background = 'rgba(255, 126, 95, 0.1)';
+            });
+
+            area.addEventListener('dragleave', () => {
+                area.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+                area.style.background = 'transparent';
+            });
+
+            area.addEventListener('drop', (e) => {
+                e.preventDefault();
+                area.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+                area.style.background = 'transparent';
+                if (e.dataTransfer.files.length > 0) {
+                    uploadImage(e.dataTransfer.files[0], slot);
+                }
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    uploadImage(e.target.files[0], slot);
+                }
+            });
+        });
+
+        // Set up select change listeners
+        document.querySelectorAll('.image-select').forEach(sel => {
+            sel.addEventListener('change', () => {
+                const slot = sel.dataset.slot;
+                displaySelectedImage(sel.value, slot);
+                checkGenerateAvailability();
+            });
+        });
+
+        async function uploadImage(file, slot) {
+            if (!file || !file.type.startsWith('image/')) {
+                showError('Please select an image file');
+                return;
+            }
+
+            hideError();
+            hideSuccess();
+
+            // Show local preview
+            const previewImg = getPreviewImgForSlot(slot);
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                previewImg.src = e.target.result;
+                previewImg.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Upload failed: ${response.status} ${errorText}`);
+                }
+
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    previewCache.set(result.filename, previewImg.src);
+
+                    // Add to list if not already present
+                    if (!uploadedImages.find(img => img.filename === result.filename)) {
+                        uploadedImages.unshift({
+                            filename: result.filename,
+                            originalName: file.name,
+                            uploadDate: new Date().toISOString()
+                        });
+                        saveData();
+                        updateAllSelects();
+                    }
+
+                    // Auto-select in this slot
+                    const sel = getSelectForSlot(slot);
+                    sel.value = result.filename;
+                    displaySelectedImage(result.filename, slot);
+
+                    showSuccess(`Image uploaded to slot ${slot.toUpperCase()}!`);
+                    checkGenerateAvailability();
+                } else {
+                    throw new Error(result.message || 'Upload failed');
+                }
+            } catch (error) {
+                console.error('Upload error:', error);
+                showError(`Failed to upload: ${error.message}`);
+            }
+        }
+
+        function displaySelectedImage(filename, slot) {
+            const previewImgId = `preview-img-${slot}`;
+            const previewImg = document.getElementById(previewImgId);
+            const placeholder = previewImg.parentElement.querySelector('.placeholder-text');
+
+            if (!filename) {
+                previewImg.style.display = 'none';
+                if (placeholder) placeholder.style.display = 'block';
+                return;
+            }
+
+            const cached = previewCache.get(filename);
+            if (cached) {
+                previewImg.src = cached;
+                previewImg.style.display = 'block';
+                if (placeholder) placeholder.style.display = 'none';
+            } else {
+                previewImg.style.display = 'none';
+                if (placeholder) placeholder.style.display = 'none';
+            }
+        }
+
+        function updateAllSelects() {
+            document.querySelectorAll('.image-select').forEach(sel => {
+                const currentVal = sel.value;
+                sel.innerHTML = '<option value="">-- Select an image --</option>';
+                uploadedImages.forEach(img => {
+                    const opt = document.createElement('option');
+                    opt.value = img.filename;
+                    opt.textContent = img.filename;
+                    sel.appendChild(opt);
+                });
+                sel.value = currentVal;
+            });
+        }
+
+        function checkGenerateAvailability() {
+            const selA = getSelectForSlot('a');
+            let ok = !!selA.value && !!promptInput.value.trim();
+
+            if (currentMode >= 2) {
+                const selB = getSelectForSlot('b');
+                ok = ok && !!selB.value;
+            }
+            if (currentMode >= 3) {
+                const selC = getSelectForSlot('c');
+                ok = ok && !!selC.value;
+            }
+
+            generateBtn.disabled = !ok;
+        }
+
+        // Re-check when prompt changes
+        promptInput.addEventListener('input', checkGenerateAvailability);
+
+        // --- Generation ---
+        generateBtn.addEventListener('click', generateEditedImage);
+
+        async function generateEditedImage() {
+            const selA = getSelectForSlot('a').value;
+            const selB = currentMode >= 2 ? getSelectForSlot('b').value : null;
+            const selC = currentMode >= 3 ? getSelectForSlot('c').value : null;
+            const prompt = promptInput.value.trim();
+            const negativePrompt = negativePromptInput.value.trim();
+            const steps = parseInt(stepsInput.value);
+            const cfg = parseFloat(cfgInput.value);
+            const seed = seedInput.value ? parseInt(seedInput.value) : 0;
+
+            if (!selA || !prompt) {
+                showError('Please select image A and enter a prompt');
+                return;
+            }
+
+            hideError();
+            showLoading('Generating edited image...');
+            generateBtn.disabled = true;
+
+            try {
+                const requestData = {
+                    mode: currentMode,
+                    prompt: prompt,
+                    negative_prompt: negativePrompt,
+                    steps: steps,
+                    cfg: cfg,
+                    primary_image: selA,
+                    seed: seed
+                };
+                if (selB) requestData.secondary_image = selB;
+                if (selC) requestData.tertiary_image = selC;
+
+                const response = await fetch(`${API_BASE_URL}/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestData)
+                });
+
+                if (!response.ok) {
+                    let errorDetail = `Server responded with ${response.status}`;
+                    try {
+                        const errorData = await response.json();
+                        errorDetail += `: ${errorData.detail || JSON.stringify(errorData)}`;
+                    } catch (e) {
+                        const errorText = await response.text();
+                        errorDetail += `: ${errorText}`;
+                    }
+                    throw new Error(errorDetail);
+                }
+
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('image')) {
+                    const textResponse = await response.text();
+                    throw new Error(`Server did not return an image. Response: ${textResponse}`);
+                }
+
+                const blob = await response.blob();
+                if (blob.size === 0) throw new Error('Server returned empty image');
+
+                const imageUrl = URL.createObjectURL(blob);
+
+                generatedImage.src = imageUrl;
+                generatedImage.style.display = 'block';
+                outputPlaceholder.style.display = 'none';
+
+                downloadBtn.href = imageUrl;
+                downloadBtn.style.display = 'block';
+
+                generationHistory.unshift({
+                    mode: currentMode,
+                    prompt, negativePrompt, steps, cfg, seed,
+                    primaryImage: selA,
+                    secondaryImage: selB,
+                    tertiaryImage: selC,
+                    generatedImageUrl: imageUrl,
+                    timestamp: new Date().toISOString()
+                });
+
+                if (generationHistory.length > 10) {
+                    for (let i = 10; i < generationHistory.length; i++) {
+                        URL.revokeObjectURL(generationHistory[i].generatedImageUrl);
+                    }
+                    generationHistory = generationHistory.slice(0, 10);
+                }
+
+                saveData();
+                renderHistory();
+
+            } catch (error) {
+                console.error('Generation error:', error);
+                showError(`Failed to generate: ${error.message}`);
+            } finally {
+                hideLoading();
+                generateBtn.disabled = false;
+            }
+        }
+
+        // --- History ---
+        function renderHistory() {
+            if (generationHistory.length === 0) {
+                historyGrid.innerHTML = '<div class="placeholder-text" style="grid-column: 1 / -1;">Your generation history will appear here</div>';
+                return;
+            }
+            historyGrid.innerHTML = '';
+            generationHistory.forEach((item, index) => {
+                const el = document.createElement('div');
+                el.className = 'history-item';
+                el.innerHTML = `<img src="${item.generatedImageUrl}" alt="Generated ${index + 1}">`;
+                el.addEventListener('click', () => {
+                    generatedImage.src = item.generatedImageUrl;
+                    generatedImage.style.display = 'block';
+                    outputPlaceholder.style.display = 'none';
+                    downloadBtn.href = item.generatedImageUrl;
+                    downloadBtn.style.display = 'block';
+                });
+                historyGrid.appendChild(el);
+            });
+        }
+
+        // --- Helpers ---
+        function showLoading(msg) {
+            loadingElement.innerHTML = `<i>⏳</i>${msg}`;
+            loadingElement.style.display = 'block';
+            outputPlaceholder.style.display = 'none';
+            generatedImage.style.display = 'none';
+        }
+        function hideLoading() { loadingElement.style.display = 'none'; }
+        function showError(msg) { errorMessage.textContent = msg; errorMessage.style.display = 'block'; uploadSuccess.style.display = 'none'; }
+        function hideError() { errorMessage.style.display = 'none'; }
+        function showSuccess(msg) { uploadSuccess.textContent = msg; uploadSuccess.style.display = 'block'; errorMessage.style.display = 'none'; }
+        function hideSuccess() { uploadSuccess.style.display = 'none'; }
+
+        // --- Persistence ---
+        function saveData() {
+            localStorage.setItem('uploadedImages', JSON.stringify(uploadedImages));
+            localStorage.setItem('qwenGenerationHistory', JSON.stringify(generationHistory));
+        }
+
+        function loadData() {
+            const saved = localStorage.getItem('uploadedImages');
+            const savedHistory = localStorage.getItem('qwenGenerationHistory');
+            if (saved) { uploadedImages = JSON.parse(saved); updateAllSelects(); }
+            if (savedHistory) { generationHistory = JSON.parse(savedHistory); renderHistory(); }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadData);
+    </script>
+</body>
+</html>
