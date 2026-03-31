@@ -5,6 +5,7 @@ import requests
 import uuid
 import json
 import os
+import time
 from typing import Optional
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,18 +20,17 @@ app.add_middleware(
 )
 
 
-def load_config():
-    with open("config.json", "r") as f:
-        return json.load(f)
-
-
 def get_comfyui_address():
-    """Get ComfyUI address from environment variable or config file."""
-    env_address = os.getenv("COMFYUI_ADDRESS")
-    if env_address:
-        return env_address
-    config = load_config()
-    return config["comfyui_backend"]
+    """Get ComfyUI address from environment variable."""
+    address = os.getenv("COMFYUI_ADDRESS")
+    if not address:
+        raise HTTPException(status_code=500, detail="COMFYUI_ADDRESS environment variable is not set")
+    return address
+
+
+def get_output_dir():
+    """Get output directory from environment variable or default."""
+    return os.getenv("OUTPUT_DIR", "./outputs")
 
 
 def establish_connection(server_address):
@@ -59,26 +59,18 @@ def download_image(server_address, filename, subfolder, output_dir):
 
 
 def update_qwen_prompt(workflow, prompt, negative_text, steps, cfg, image_a, seed=None, image_b=None, image_c=None):
-    # Update prompts
     workflow["115:111"]["inputs"]["prompt"] = prompt
     workflow["115:110"]["inputs"]["prompt"] = negative_text
-
-    # Update sampler parameters
     workflow["115:3"]["inputs"]["steps"] = steps
     workflow["115:3"]["inputs"]["cfg"] = cfg
-
-    # Update primary image
     workflow["78"]["inputs"]["image"] = image_a
 
-    # Update secondary image if present in workflow
     if image_b is not None and "120" in workflow:
         workflow["120"]["inputs"]["image"] = image_b
 
-    # Update tertiary image if present in workflow
     if image_c is not None and "121" in workflow:
         workflow["121"]["inputs"]["image"] = image_c
 
-    # Update seed
     workflow["115:3"]["inputs"]["seed"] = seed if seed is not None else 0
 
     return workflow
@@ -118,7 +110,6 @@ class GenerateRequest(BaseModel):
 async def upload_image(file: UploadFile = File(...)):
     """Upload an image to ComfyUI and return the filename for use in generation."""
     server = get_comfyui_address()
-
     contents = await file.read()
 
     upload_url = f"http://{server}/upload/image"
@@ -135,24 +126,18 @@ async def upload_image(file: UploadFile = File(...)):
                 "message": "Image uploaded successfully"
             }
         else:
-            raise HTTPException(
-                status_code=500,
-                detail=f"ComfyUI upload failed: {response.text}"
-            )
+            raise HTTPException(status_code=500, detail=f"ComfyUI upload failed: {response.text}")
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Upload error: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Upload error: {str(e)}")
 
 
 @app.post("/generate")
 def generate_image(request: GenerateRequest):
     """Generate an edited image with ComfyUI Qwen. Supports 1, 2, or 3 input images."""
-    config = load_config()
     server = get_comfyui_address()
+    output_dir = get_output_dir()
 
     if request.mode not in (1, 2, 3):
         raise HTTPException(status_code=400, detail="Mode must be 1, 2, or 3")
@@ -218,25 +203,33 @@ def generate_image(request: GenerateRequest):
                         filename = img["filename"]
                         subfolder = img.get("subfolder", "")
 
-                        output_path = download_image(server, filename, subfolder, config["output_dir"])
-                        if output_path:
-                            break
-                        else:
-                            history = get_history(server, prompt_id)
-                            if history and history.get("outputs"):
-                                for node_output in history["outputs"].values():
-                                    if "images" in node_output:
-                                        for img in node_output["images"]:
-                                            output_path = download_image(server, img["filename"], img.get("subfolder", ""), config["output_dir"])
-                                            if output_path:
-                                                break
-                                    if output_path:
-                                        break
+                        # Retry direct download a few times
+                        for attempt in range(5):
+                            output_path = download_image(server, filename, subfolder, output_dir)
+                            if output_path:
+                                break
+                            time.sleep(0.5)
 
-                            if not output_path:
-                                raise HTTPException(status_code=500, detail="Could not retrieve generated image")
-                    else:
-                        continue
+                        # Fallback: poll history
+                        if not output_path:
+                            for attempt in range(5):
+                                history = get_history(server, prompt_id)
+                                if history and history.get("outputs"):
+                                    for node_output in history["outputs"].values():
+                                        if "images" in node_output:
+                                            for hist_img in node_output["images"]:
+                                                output_path = download_image(server, hist_img["filename"], hist_img.get("subfolder", ""), output_dir)
+                                                if output_path:
+                                                    break
+                                        if output_path:
+                                            break
+                                if output_path:
+                                    break
+                                time.sleep(0.5)
+
+                        if not output_path:
+                            raise HTTPException(status_code=500, detail="Could not retrieve generated image")
+                        break
 
         if not output_path:
             raise HTTPException(status_code=500, detail="Failed to download image")
